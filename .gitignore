@@ -1,0 +1,11 @@
+# macOS
+.DS_Store
+
+# Image files
+*.jpeg
+
+# Jupyter Notebook checkpoints
+.ipynb_checkpoints/
+
+# Python cache
+__pycache__/
