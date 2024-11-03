@@ -4,10 +4,28 @@ import cv2
 import numpy as np
 import matplotlib.pyplot as plt
 import dlib
-import tkinter as tk
-from tkinter import filedialog
+from PIL import Image
 
 detector = dlib.get_frontal_face_detector()
+
+
+def convert_to_jpeg(input_file_path):
+    """Convert any image format to JPEG and return the path of the JPEG image."""
+    output_file_path = os.path.splitext(input_file_path)[0] + ".jpg"
+
+    try:
+        with Image.open(input_file_path) as img:
+            img = img.convert("RGB")
+            img.save(output_file_path, "JPEG")
+        return output_file_path
+    except IOError as e:
+        raise ValueError(
+            f"Error converting image to JPEG: Unsupported format or cannot read the file. {e}"
+        )
+    except Exception as e:
+        raise ValueError(
+            f"An unexpected error occurred while converting the image: {e}"
+        )
 
 
 def detect_face(image_path):
@@ -74,7 +92,9 @@ if __name__ == "__main__":
     user_image_path = input("Please enter the path to your image: ")
 
     try:
-        face_image = detect_face(user_image_path)
+        jpeg_image_path = convert_to_jpeg(user_image_path)
+
+        face_image = detect_face(jpeg_image_path)
 
         stick_figure_image_path = get_random_stick_figure_image_path(
             stick_figures_folder
