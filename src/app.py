@@ -5,27 +5,38 @@ import numpy as np
 import matplotlib.pyplot as plt
 import dlib
 from PIL import Image
+import pillow_heif
 
 detector = dlib.get_frontal_face_detector()
 
 
 def convert_to_jpeg(input_file_path):
-    """Convert any image format to JPEG and return the path of the JPEG image."""
+    """Convert any image format to JPEG, using pillow_heif for HEIF files, and return the path of the JPEG image."""
     output_file_path = os.path.splitext(input_file_path)[0] + ".jpg"
 
-    try:
-        with Image.open(input_file_path) as img:
-            img = img.convert("RGB")
-            img.save(output_file_path, "JPEG")
-        return output_file_path
-    except IOError as e:
-        raise ValueError(
-            f"Error converting image to JPEG: Unsupported format or cannot read the file. {e}"
-        )
-    except Exception as e:
-        raise ValueError(
-            f"An unexpected error occurred while converting the image: {e}"
-        )
+    if input_file_path.lower().endswith((".heif", ".heic")):
+        try:
+            heif_image = pillow_heif.open_heif(input_file_path)
+            image = Image.frombytes(heif_image.mode, heif_image.size, heif_image.data)
+            image = image.convert("RGB")
+            image.save(output_file_path, "JPEG")
+            return output_file_path
+        except Exception as e:
+            raise ValueError(f"Error converting HEIF to JPEG: {e}")
+    else:
+        try:
+            with Image.open(input_file_path) as img:
+                img = img.convert("RGB")
+                img.save(output_file_path, "JPEG")
+            return output_file_path
+        except IOError as e:
+            raise ValueError(
+                f"Error converting image to JPEG: Unsupported format or cannot read the file. {e}"
+            )
+        except Exception as e:
+            raise ValueError(
+                f"An unexpected error occurred while converting the image: {e}"
+            )
 
 
 def detect_face(image_path):
