@@ -79,21 +79,17 @@ def get_stick_figure_image_path(stick_figures_folder, manual_image_path=None):
 
 
 def combine_face_with_stick_figure(face_image, stick_figure_image, face_scale=0.3):
-    # Resize face image based on the provided scale
     face_height = int(face_image.shape[0] * face_scale)
     face_width = int(face_image.shape[1] * face_scale)
     face_image_resized = cv2.resize(face_image, (face_width, face_height))
 
-    # Set the canvas size to just fit the face and stick figure images
     canvas_height = face_image_resized.shape[0] + stick_figure_image.shape[0]
     canvas_width = max(face_image_resized.shape[1], stick_figure_image.shape[1])
     canvas = np.ones((canvas_height, canvas_width, 3), dtype=np.uint8) * 255
 
-    # Center-align the face and stick figure on the canvas, with no extra space
     x_offset_face = (canvas_width - face_image_resized.shape[1]) // 2
     x_offset_stick = (canvas_width - stick_figure_image.shape[1]) // 2
 
-    # Position the face image at the top and the stick figure directly below it
     canvas[
         0 : face_image_resized.shape[0],
         x_offset_face : x_offset_face + face_image_resized.shape[1],
@@ -117,7 +113,7 @@ if __name__ == "__main__":
 
         stick_figure_image_path = get_stick_figure_image_path(
             stick_figures_folder,
-            "/Users/shankar.selvaraj/Documents/personal/projects/stick_figure_creator/images/stick_figures/weirdize_1.png",
+            "/Users/shankar.selvaraj/Documents/personal/projects/stick_figure_creator/images/stick_figures/traumatize_1.png",
         )
         stick_figure_image = cv2.cvtColor(
             cv2.imread(stick_figure_image_path), cv2.COLOR_BGR2RGB
