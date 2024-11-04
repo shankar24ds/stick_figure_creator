@@ -149,6 +149,37 @@ def combine_face_with_stick_figure(face_image, stick_figure_image, face_scale=0.
     return canvas
 
 
+def shape_face_with_double_triangle_cut(face_image):
+    """Trim the lower corners of the face image to create two inverted triangle shapes as specified."""
+    height, width = face_image.shape[:2]
+
+    trimmed_face_image = np.ones((height, width, 3), dtype=np.uint8) * 255
+
+    left_triangle = np.array(
+        [
+            [0, height],
+            [0, height - 200],
+            [200, height],
+        ]
+    )
+
+    right_triangle = np.array(
+        [
+            [width, height],
+            [width, height - 200],
+            [width - 200, height],
+        ]
+    )
+
+    mask = np.zeros((height, width), dtype=np.uint8)
+    cv2.fillPoly(mask, [left_triangle], 255)
+    cv2.fillPoly(mask, [right_triangle], 255)
+
+    trimmed_face_image[mask == 0] = face_image[mask == 0]
+
+    return trimmed_face_image
+
+
 if __name__ == "__main__":
     stick_figures_folder = "images/stick_figures"
     user_image_path = input("Please enter the path to your image: ")
@@ -162,8 +193,13 @@ if __name__ == "__main__":
 
         face_image = detect_face(image_np)
 
+        trimmed_face_image = shape_face_with_double_triangle_cut(face_image)
+
         face_with_hair_and_ears = attach_hair_and_ears(
-            face_image, hair_image_path, left_ear_image_path, right_ear_image_path
+            trimmed_face_image,
+            hair_image_path,
+            left_ear_image_path,
+            right_ear_image_path,
         )
 
         stick_figure_image_path = get_stick_figure_image_path(
