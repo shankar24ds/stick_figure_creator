@@ -2,7 +2,7 @@
 .DS_Store
 
 # Image files
-*.jpeg
+images/personal/
 
 # Jupyter Notebook checkpoints
 .ipynb_checkpoints/
