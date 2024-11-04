@@ -6,29 +6,27 @@ import matplotlib.pyplot as plt
 import dlib
 from PIL import Image
 import pillow_heif
+import io
 
 detector = dlib.get_frontal_face_detector()
 
+TARGET_FACE_WIDTH = 1000
+TARGET_FACE_HEIGHT = 1000
+
 
 def convert_to_jpeg(input_file_path):
-    """Convert any image format to JPEG, using pillow_heif for HEIF files, and return the path of the JPEG image."""
-    output_file_path = os.path.splitext(input_file_path)[0] + ".jpg"
-
+    """Convert any image format to JPEG in memory, using pillow_heif for HEIF files, and return the image as a numpy array."""
     if input_file_path.lower().endswith((".heif", ".heic")):
         try:
             heif_image = pillow_heif.open_heif(input_file_path)
             image = Image.frombytes(heif_image.mode, heif_image.size, heif_image.data)
             image = image.convert("RGB")
-            image.save(output_file_path, "JPEG")
-            return output_file_path
         except Exception as e:
             raise ValueError(f"Error converting HEIF to JPEG: {e}")
     else:
         try:
             with Image.open(input_file_path) as img:
-                img = img.convert("RGB")
-                img.save(output_file_path, "JPEG")
-            return output_file_path
+                image = img.convert("RGB")
         except IOError as e:
             raise ValueError(
                 f"Error converting image to JPEG: Unsupported format or cannot read the file. {e}"
@@ -38,15 +36,12 @@ def convert_to_jpeg(input_file_path):
                 f"An unexpected error occurred while converting the image: {e}"
             )
 
+    image_np = np.array(image)
+    return image_np
 
-def detect_face(image_path):
-    image = cv2.imread(image_path)
-    if image is None:
-        raise FileNotFoundError("Error: Image not found or could not be loaded.")
 
-    image_rgb = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
-    gray_image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-
+def detect_face(image_np):
+    gray_image = cv2.cvtColor(image_np, cv2.COLOR_RGB2GRAY)
     faces = detector(gray_image)
     if len(faces) == 0:
         raise ValueError("Error: No faces detected in the image.")
@@ -56,11 +51,19 @@ def detect_face(image_path):
         )
 
     x, y, w, h = (faces[0].left(), faces[0].top(), faces[0].width(), faces[0].height())
-    face = image_rgb[y : y + h, x : x + w]
-    return face
+    face = image_np[y : y + h, x : x + w]
+    face_resized = cv2.resize(face, (TARGET_FACE_WIDTH, TARGET_FACE_HEIGHT))
+    return face_resized
 
 
-def get_random_stick_figure_image_path(stick_figures_folder):
+def get_stick_figure_image_path(stick_figures_folder, manual_image_path=None):
+    if manual_image_path:
+        if not os.path.isfile(manual_image_path):
+            raise FileNotFoundError(
+                f"Error: Specified image '{manual_image_path}' not found."
+            )
+        return manual_image_path
+
     all_images = [
         f
         for f in os.listdir(stick_figures_folder)
@@ -72,49 +75,62 @@ def get_random_stick_figure_image_path(stick_figures_folder):
 
     random_image_name = random.choice(all_images)
     random_image_path = os.path.join(stick_figures_folder, random_image_name)
-
     return random_image_path
 
 
-def combine_face_with_stick_figure(face_image, stick_figure_image):
-    stick_figure_image_resized = cv2.resize(
-        stick_figure_image, (face_image.shape[1], stick_figure_image.shape[0])
-    )
+def combine_face_with_stick_figure(face_image, stick_figure_image, face_scale=0.3):
+    face_height = int(face_image.shape[0] * face_scale)
+    face_width = int(face_image.shape[1] * face_scale)
+    face_image_resized = cv2.resize(face_image, (face_width, face_height))
 
-    combined_image = np.vstack((face_image, stick_figure_image_resized))
-
-    canvas_height = combined_image.shape[0] + 50
-    canvas_width = combined_image.shape[1] + 50
+    canvas_height = face_image_resized.shape[0] + stick_figure_image.shape[0] + 50
+    canvas_width = max(face_image_resized.shape[1], stick_figure_image.shape[1]) + 50
     canvas = np.ones((canvas_height, canvas_width, 3), dtype=np.uint8) * 255
 
-    y_offset = 25
-    x_offset = (canvas.shape[1] - combined_image.shape[1]) // 2
+    y_offset_face = 25
+    x_offset_face = (canvas.shape[1] - face_image_resized.shape[1]) // 2
+
+    y_offset_stick = face_image_resized.shape[0] + 50
+    x_offset_stick = (canvas.shape[1] - stick_figure_image.shape[1]) // 2
+
+    if (y_offset_face + face_image_resized.shape[0] > canvas.shape[0]) or (
+        y_offset_stick + stick_figure_image.shape[0] > canvas.shape[0]
+    ):
+        raise ValueError("Canvas size is not sufficient to hold the images.")
+
     canvas[
-        y_offset : y_offset + combined_image.shape[0],
-        x_offset : x_offset + combined_image.shape[1],
-    ] = combined_image
+        y_offset_face : y_offset_face + face_image_resized.shape[0],
+        x_offset_face : x_offset_face + face_image_resized.shape[1],
+    ] = face_image_resized
+
+    canvas[
+        y_offset_stick : y_offset_stick + stick_figure_image.shape[0],
+        x_offset_stick : x_offset_stick + stick_figure_image.shape[1],
+    ] = stick_figure_image
 
     return canvas
 
 
 if __name__ == "__main__":
     stick_figures_folder = "images/stick_figures"
-
     user_image_path = input("Please enter the path to your image: ")
 
     try:
-        jpeg_image_path = convert_to_jpeg(user_image_path)
+        image_np = convert_to_jpeg(user_image_path)
 
-        face_image = detect_face(jpeg_image_path)
+        face_image = detect_face(image_np)
 
-        stick_figure_image_path = get_random_stick_figure_image_path(
-            stick_figures_folder
+        stick_figure_image_path = get_stick_figure_image_path(
+            stick_figures_folder,
+            "/Users/shankar.selvaraj/Documents/personal/projects/stick_figure_creator/images/stick_figures/weirdize_1.png",
         )
-        stick_figure_image = cv2.imread(stick_figure_image_path)
+        stick_figure_image = cv2.cvtColor(
+            cv2.imread(stick_figure_image_path), cv2.COLOR_BGR2RGB
+        )
 
         final_image = combine_face_with_stick_figure(face_image, stick_figure_image)
 
-        plt.figure(figsize=(3, 5))
+        plt.figure(figsize=(5, 8))
         plt.imshow(final_image)
         plt.axis("off")
         plt.show()
